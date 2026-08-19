@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Solar System Orrery — Today's Positions</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
+
+  :root{
+    --bg-deep:#070a13;
+    --bg-glow:#121a2e;
+    --line:rgba(226,230,245,0.09);
+    --line-bright:rgba(226,230,245,0.22);
+    --text-hi:#eef0f7;
+    --text-lo:#8b93ac;
+    --mono:#a9b4d0;
+    --gold:#f4b860;
+    --sun-a:#ffd27a;
+    --sun-b:#ff7a3c;
+    --mercury:#a8a29a;
+    --venus:#e8c99a;
+    --earth:#4f9be0;
+    --mars:#c85a34;
+    --jupiter:#d9ac78;
+    --saturn:#e6d3a3;
+    --uranus:#7fd6d1;
+    --neptune:#5b76e8;
+    --moon:#cfd3dc;
+  }
+
+  *{box-sizing:border-box;}
+
+  html,body{
+    margin:0;
+    height:100%;
+    background:
+      radial-gradient(ellipse at 50% 38%, var(--bg-glow) 0%, var(--bg-deep) 62%);
+    color:var(--text-hi);
+    font-family:'Inter', -apple-system, sans-serif;
+    overflow-x:hidden;
+  }
+
+  /* faint starfield */
+  #stars{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+  }
+
+  .wrap{
+    position:relative;
+    z-index:1;
+    max-width:980px;
+    margin:0 auto;
+    padding:40px 20px 60px;
+  }
+
+  header{
+    text-align:center;
+    margin-bottom:6px;
+  }
+
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.22em;
+    text-transform:uppercase;
+    color:var(--text-lo);
+  }
+
+  h1{
+    font-family:'Cormorant Garamond', serif;
+    font-weight:600;
+    font-size:44px;
+    margin:6px 0 4px;
+    letter-spacing:0.01em;
+  }
+
+  #date-line{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    color:var(--gold);
+    letter-spacing:0.04em;
+  }
+
+  #jd-line{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--text-lo);
+    margin-top:2px;
+  }
+
+  .stage{
+    position:relative;
+    margin:34px auto 10px;
+    display:flex;
+    justify-content:center;
+  }
+
+  svg{ display:block; width:100%; height:auto; max-width:820px; }
+
+  .orbit{
+    fill:none;
+    stroke:var(--line);
+    stroke-width:1;
+  }
+
+  .orbit-moon{
+    fill:none;
+    stroke:rgba(226,230,245,0.18);
+    stroke-width:0.7;
+    stroke-dasharray:1.5 2;
+  }
+
+  .tick{
+    stroke:var(--line);
+    stroke-width:1;
+  }
+
+  .planet-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9.5px;
+    fill:var(--text-lo);
+    letter-spacing:0.02em;
+  }
+
+  .planet-label.hi{ fill:var(--text-hi); }
+
+  .deg-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:8px;
+    fill:#5c6padish;
+    fill:#5a6482;
+  }
+
+  .sun-glow{
+    filter: drop-shadow(0 0 14px rgba(255,170,90,0.85)) drop-shadow(0 0 34px rgba(255,120,60,0.4));
+  }
+
+  .planet-glow{
+    filter: drop-shadow(0 0 3px rgba(255,255,255,0.25));
+  }
+
+  .legend{
+    margin-top:28px;
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:10px 18px;
+    max-width:640px;
+    margin-left:auto;
+    margin-right:auto;
+    padding-top:18px;
+    border-top:1px solid var(--line);
+  }
+
+  @media (max-width:560px){
+    .legend{ grid-template-columns:repeat(2, 1fr); }
+    h1{ font-size:32px; }
+  }
+
+  .legend-item{
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--text-lo);
+  }
+
+  .dot{
+    width:8px; height:8px; border-radius:50%; flex:none;
+    display:inline-block;
+    transform:translateY(1px);
+  }
+
+  .legend-item .name{ color:var(--text-hi); font-weight:500; }
+  .legend-item .val{ margin-left:auto; color:var(--mono); }
+
+  footer{
+    text-align:center;
+    margin-top:34px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    color:var(--text-lo);
+    line-height:1.7;
+    max-width:560px;
+    margin-left:auto;
+    margin-right:auto;
+  }
+
+  footer .accent{ color:var(--gold); }
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Heliocentric plan view</div>
+    <h1>The Solar System, Right Now</h1>
+    <div id="date-line">—</div>
+    <div id="jd-line">—</div>
+  </header>
+
+  <div class="stage">
+    <svg id="orrery" viewBox="0 0 820 820"></svg>
+  </div>
+
+  <div class="legend" id="legend"></div>
+
+  <footer>
+    Angles are true heliocentric ecliptic longitudes computed from J2000 Keplerian
+    orbital elements, solved for the moment you loaded this page.
+    <span class="accent">Orbital radii are shown on a compressed (square-root) scale</span>
+    so Mercury and Neptune both fit on screen — spacing between orbits is not
+    physically to scale. The Moon's distance from Earth is exaggerated for visibility.
+  </footer>
+</div>
+
+<script>
+/* ---------- starfield ---------- */
+(function(){
+  const c = document.getElementById('stars');
+  const ctx = c.getContext('2d');
+  function size(){
+    c.width = window.innerWidth;
+    c.height = document.body.scrollHeight;
+  }
+  size();
+  const stars = [];
+  const n = Math.floor((c.width*c.height)/9000);
+  for(let i=0;i<n;i++){
+    stars.push({
+      x: Math.random()*c.width,
+      y: Math.random()*c.height,
+      r: Math.random()*1.1+0.2,
+      a: Math.random()*0.6+0.15
+    });
+  }
+  function draw(){
+    ctx.clearRect(0,0,c.width,c.height);
+    for(const s of stars){
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(230,235,250,${s.a})`;
+      ctx.arc(s.x,s.y,s.r,0,7);
+      ctx.fill();
+    }
+  }
+  draw();
+  window.addEventListener('resize', ()=>{ size(); draw(); });
+})();
+
+/* ---------- orbital mechanics ---------- */
+// Keplerian elements at J2000, with per-century rates
+// [a, adot, e, edot, I, Idot, L, Ldot, peri, peridot, node, nodedot]
+const ELEMENTS = {
+  Mercury: [0.38709927,0.00000037, 0.20563593,0.00001906, 7.00497902,-0.00594749, 252.25032350,149472.67411175, 77.45779628,0.16047689, 48.33076593,-0.12534081],
+  Venus:   [0.72333566,0.00000390, 0.00677672,-0.00004107, 3.39467605,-0.00078890, 181.97909950,58517.81538729, 131.60246718,0.00268329, 76.67984255,-0.27769418],
+  Earth:   [1.00000261,0.00000562, 0.01671123,-0.00004392, -0.00001531,-0.01294668, 100.46457166,35999.37244981, 102.93768193,0.32327364, 0.0,0.0],
+  Mars:    [1.52371034,0.00001847, 0.09339410,0.00007882, 1.84969142,-0.00813131, -4.55343205,19140.30268499, -23.94362959,0.44441088, 49.55953891,-0.29257343],
+  Jupiter: [5.20288700,-0.00011607, 0.04838624,-0.00013253, 1.30439695,-0.00183714, 34.39644051,3034.74612775, 14.72847983,0.21252668, 100.47390909,0.20469106],
+  Saturn:  [9.53667594,-0.00125060, 0.05386179,-0.00050991, 2.48599187,0.00193609, 49.95424423,1222.49362201, 92.59887831,-0.41897216, 113.66242448,-0.28867794],
+  Uranus:  [19.18916464,-0.00196176, 0.04725744,-0.00004397, 0.77263783,-0.00242939, 313.23810451,428.48202785, 170.95427630,0.40805281, 74.01692503,0.04240589],
+  Neptune: [30.06992276,0.00026291, 0.00859048,0.00005105, 1.77004347,0.00035372, -55.12002969,218.45945325, 44.96476227,-0.32241464, 131.78422574,-0.00508664]
+};
+
+const COLORS = {
+  Mercury:'var(--mercury)', Venus:'var(--venus)', Earth:'var(--earth)', Mars:'var(--mars)',
+  Jupiter:'var(--jupiter)', Saturn:'var(--saturn)', Uranus:'var(--uranus)', Neptune:'var(--neptune)'
+};
+const HEX = {
+  Mercury:'#a8a29a', Venus:'#e8c99a', Earth:'#4f9be0', Mars:'#c85a34',
+  Jupiter:'#d9ac78', Saturn:'#e6d3a3', Uranus:'#7fd6d1', Neptune:'#5b76e8'
+};
+
+function toJD(date){
+  return date.getTime()/86400000 + 2440587.5;
+}
+
+function solveKepler(Mdeg, e){
+  let M = ((Mdeg + 180) % 360 + 360) % 360 - 180;
+  M = M * Math.PI/180;
+  let E = M;
+  for(let i=0;i<100;i++){
+    const dE = (E - e*Math.sin(E) - M) / (1 - e*Math.cos(E));
+    E -= dE;
+    if(Math.abs(dE) < 1e-12) break;
+  }
+  return E;
+}
+
+function planetPosition(name, T){
+  const [a0,ad,e0,ed,I0,Id,L0,Ld,p0,pd,n0,nd] = ELEMENTS[name];
+  const a = a0 + ad*T;
+  const e = e0 + ed*T;
+  const L = L0 + Ld*T;
+  const peri = p0 + pd*T;
+  const M = L - peri;
+  const E = solveKepler(M, e);
+  const v = 2*Math.atan2(Math.sqrt(1+e)*Math.sin(E/2), Math.sqrt(1-e)*Math.cos(E/2));
+  const r = a*(1 - e*Math.cos(E));
+  const lon = ((v*180/Math.PI) + peri) % 360;
+  return {r, lon: (lon+360)%360};
+}
+
+// simplified lunar mean longitude (degrees), relative geocentric ecliptic longitude
+function moonLongitude(daysSinceJ2000){
+  const L = 218.3164477 + 13.17639648 * daysSinceJ2000;
+  return ((L % 360) + 360) % 360;
+}
+
+/* ---------- build the scene ---------- */
+const now = new Date();
+const JD = toJD(now);
+const T = (JD - 2451545.0) / 36525.0;
+const daysSinceJ2000 = JD - 2451545.0;
+
+document.getElementById('date-line').textContent =
+  now.toLocaleDateString(undefined, {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+document.getElementById('jd-line').textContent = 'Julian Date ' + JD.toFixed(2);
+
+const order = ['Mercury','Venus','Earth','Mars','Jupiter','Saturn','Uranus','Neptune'];
+const positions = {};
+for(const p of order){ positions[p] = planetPosition(p, T); }
+
+// square-root compressed radius scale -> pixels
+const CX = 410, CY = 410;
+const R_MIN_PX = 46;   // Mercury orbit radius in px
+const R_MAX_PX = 372;  // Neptune orbit radius in px
+const aMin = Math.sqrt(0.387), aMax = Math.sqrt(30.10);
+function scaleRadius(auRadius){
+  const s = Math.sqrt(auRadius);
+  return R_MIN_PX + (s - aMin) / (aMax - aMin) * (R_MAX_PX - R_MIN_PX);
+}
+
+const svg = document.getElementById('orrery');
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs){
+  const e = document.createElementNS(NS, tag);
+  for(const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+
+// defs: sun gradient
+const defs = el('defs', {});
+const sunGrad = el('radialGradient', {id:'sunGrad', cx:'40%', cy:'35%', r:'65%'});
+sunGrad.appendChild(el('stop', {offset:'0%', 'stop-color':'#fff3d6'}));
+sunGrad.appendChild(el('stop', {offset:'45%', 'stop-color':'#ffd27a'}));
+sunGrad.appendChild(el('stop', {offset:'100%', 'stop-color':'#ff7a3c'}));
+defs.appendChild(sunGrad);
+svg.appendChild(defs);
+
+// orbit rings + degree ticks
+const planetRadiusPx = {};
+for(const p of order){
+  const rpx = scaleRadius(positions[p].r);
+  planetRadiusPx[p] = rpx;
+  svg.appendChild(el('circle', {cx:CX, cy:CY, r:rpx, class:'orbit'}));
+}
+
+// faint 30-degree tick marks on outermost ring
+for(let d=0; d<360; d+=30){
+  const rad = d*Math.PI/180;
+  const x1 = CX + Math.cos(rad)*(R_MAX_PX+2);
+  const y1 = CY - Math.sin(rad)*(R_MAX_PX+2);
+  const x2 = CX + Math.cos(rad)*(R_MAX_PX+10);
+  const y2 = CY - Math.sin(rad)*(R_MAX_PX+10);
+  svg.appendChild(el('line', {x1,y1,x2,y2, class:'tick'}));
+}
+
+// sun
+svg.appendChild(el('circle', {cx:CX, cy:CY, r:16, fill:'url(#sunGrad)', class:'sun-glow'}));
+
+// planets
+const sizePx = {
+  Mercury:3.4, Venus:5.4, Earth:5.6, Mars:4.2,
+  Jupiter:9.5, Saturn:8.6, Uranus:6.6, Neptune:6.4
+};
+
+let earthX=0, earthY=0;
+
+for(const p of order){
+  const {r, lon} = positions[p];
+  const rpx = planetRadiusPx[p];
+  const rad = lon*Math.PI/180;
+  const x = CX + Math.cos(rad)*rpx;
+  const y = CY - Math.sin(rad)*rpx;
+  if(p === 'Earth'){ earthX = x; earthY = y; }
+
+  const g = el('g', {class:'planet-glow'});
+  g.appendChild(el('circle', {cx:x, cy:y, r:sizePx[p], fill:HEX[p]}));
+
+  if(p === 'Saturn'){
+    g.appendChild(el('ellipse', {
+      cx:x, cy:y, rx:sizePx[p]*1.9, ry:sizePx[p]*0.65,
+      fill:'none', stroke:'#e6d3a3', 'stroke-width':1, opacity:0.75
+    }));
+  }
+  svg.appendChild(g);
+
+  const lx = x + (x>=CX ? 9 : -9);
+  const ly = y - 8;
+  const label = el('text', {
+    x:lx, y:ly, class:'planet-label hi',
+    'text-anchor': x>=CX ? 'start':'end'
+  });
+  label.textContent = p;
+  svg.appendChild(label);
+
+  const label2 = el('text', {
+    x:lx, y:ly+11, class:'planet-label',
+    'text-anchor': x>=CX ? 'start':'end'
+  });
+  label2.textContent = r.toFixed(2)+' AU';
+  svg.appendChild(label2);
+}
+
+// Moon, orbiting Earth (exaggerated distance for visibility)
+const moonLon = moonLongitude(daysSinceJ2000);
+const moonOrbitPx = 15;
+const mrad = moonLon*Math.PI/180;
+svg.appendChild(el('circle', {cx:earthX, cy:earthY, r:moonOrbitPx, class:'orbit-moon'}));
+const mx = earthX + Math.cos(mrad)*moonOrbitPx;
+const my = earthY - Math.sin(mrad)*moonOrbitPx;
+svg.appendChild(el('circle', {cx:mx, cy:my, r:1.9, fill:'#cfd3dc'}));
+const moonLabel = el('text', {x:mx+5, y:my+3, class:'planet-label', 'text-anchor':'start'});
+moonLabel.textContent = 'Moon';
+svg.appendChild(moonLabel);
+
+/* ---------- legend ---------- */
+const legend = document.getElementById('legend');
+for(const p of order){
+  const item = document.createElement('div');
+  item.className = 'legend-item';
+  item.innerHTML = `<span class="dot" style="background:${HEX[p]}"></span>
+    <span class="name">${p}</span>
+    <span class="val">${positions[p].lon.toFixed(1)}°</span>`;
+  legend.appendChild(item);
+}
+const moonItem = document.createElement('div');
+moonItem.className = 'legend-item';
+moonItem.innerHTML = `<span class="dot" style="background:#cfd3dc"></span>
+  <span class="name">Moon</span>
+  <span class="val">${moonLon.toFixed(1)}°</span>`;
+legend.appendChild(moonItem);
+</script>
+
+</body>
+</html>
